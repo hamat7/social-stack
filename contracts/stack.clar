@@ -1,6 +1,4 @@
 ;; SocialStack - Decentralized Social Platform Built on Stacks
-;; Author: Your Name
-;; License: MIT
 
 ;; Constants
 (define-constant contract-admin tx-sender)
@@ -116,6 +114,61 @@
         (ok (map-set Accounts
             tx-sender
             (merge account-data { profile: new-profile })))
+    )
+)
+
+;; Read-only functions
+
+;; Get account profile
+(define-read-only (get-account-profile (account principal))
+    (map-get? Accounts account)
+)
+
+;; Get content details
+(define-read-only (get-content (content-id uint))
+    (map-get? Content content-id)
+)
+
+;; Get account's content
+(define-read-only (get-account-content (account principal))
+    (map-get? AccountContent account)
+)
+
+;; Follow an account
+(define-public (follow-account (account-to-follow principal))
+    (let ((current-account tx-sender)
+          (current-following (default-to (list) 
+            (map-get? Following { account: account-to-follow }))))
+        (begin
+            (asserts! (is-some (map-get? Accounts account-to-follow)) error-invalid-account)
+            (asserts! (not (is-eq current-account account-to-follow)) error-invalid-params)
+            (asserts! (is-none (index-of current-following current-account)) error-invalid-params)
+            (match (as-max-len? (append current-following current-account) u500)
+                updated-following (ok (map-set Following 
+                    { account: account-to-follow }
+                    updated-following))
+                error-content-limit)
+        )
+    )
+)
+
+;; Get following for an account
+(define-read-only (get-following (account principal))
+    (default-to (list) (map-get? Following { account: account }))
+)
+
+;; Unfollow an account
+(define-public (unfollow-account (account-to-unfollow principal))
+    (let ((current-account tx-sender)
+          (current-following (default-to (list) 
+            (map-get? Following { account: account-to-unfollow }))))
+        (begin
+            (asserts! (is-some (map-get? Accounts account-to-unfollow)) error-invalid-account)
+            (asserts! (is-some (index-of current-following current-account)) error-invalid-params)
+            (ok (map-set Following 
+                { account: account-to-unfollow }
+                (filter not-current-account current-following)))
+        )
     )
 )
 
