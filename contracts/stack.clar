@@ -172,3 +172,34 @@
     )
 )
 
+;; Helper function for unfollow-account
+(define-private (not-current-account (account principal))
+    (not (is-eq account tx-sender))
+)
+
+;; Add reaction to content
+(define-public (add-reaction (content-id uint) (message (string-utf8 280)))
+    (let ((content (unwrap! (map-get? Content content-id) error-content-not-found))
+          (current-reactions (default-to (list) (map-get? Reactions { content-id: content-id })))
+          (new-reaction { reactor: tx-sender, 
+                         message: message, 
+                         block-height: block-height }))
+        (begin
+            ;; Validate reaction message
+            (asserts! (and (>= (len message) u1) (<= (len message) u280)) error-invalid-params)
+            ;; Verify content exists before adding reaction
+            (asserts! (is-some (map-get? Content content-id)) error-content-not-found)
+            ;; Add reaction to list
+            (match (as-max-len? (append current-reactions new-reaction) u200)
+                updated-reactions (ok (map-set Reactions 
+                    { content-id: content-id }
+                    updated-reactions))
+                error-content-limit)
+        )
+    )
+)
+
+;; Get reactions for content
+(define-read-only (get-reactions (content-id uint))
+    (default-to (list) (map-get? Reactions { content-id: content-id }))
+)
